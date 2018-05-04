@@ -1,0 +1,286 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+% \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading nips_2017
+%
+% to avoid loading the natbib package, add option nonatbib:
+% \usepackage[nonatbib]{nips_2017}
+
+\usepackage[final]{nips_2017}
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+% \usepackage[final]{nips_2017}
+
+\usepackage{graphicx}
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{amsmath}
+\usepackage[linesnumbered,ruled]{algorithm2e}
+\title{Edge Machine Learning for Resource-constrained\\IoT Devices}
+
+% The \author macro works with any number of authors. There are two
+% commands used to separate the names and addresses of multiple
+% authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to
+% break the lines. Using \AND forces a line break at that point. So,
+% if LaTeX puts 3 of 4 authors names on the first line, and the last
+% on the second line, try using \AND instead of \And before the third
+% author name.
+
+\author{
+  Haocheng Fang \\
+  Carnegie Mellon University \\
+  \texttt{hfang@andrew.cmu.edu} \\
+  \And
+  Yichen Ruan \\
+  Carnegie Mellon University \\
+  \texttt{yichenr@andrew.cmu.edu} \\
+  \And
+  Jinhang Zuo \\
+  Carnegie Mellon University \\
+  \texttt{jzuo@andrew.cmu.edu} \\
+  %% examples of more authors
+  %% \AND
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+  %% \And
+  %% Coauthor \\
+  %% Affiliation \\
+  %% Address \\
+  %% \texttt{email} \\
+}
+
+\begin{document}
+% \nipsfinalcopy is no longer used
+
+\maketitle
+\section{Introduction}
+
+
+Edge computing, also known as fog computing, aims to fully utilize the computing power of resource-constrained devices that are physically close to end users. Compared to traditional cloud services, edge computing promises light weight solutions for budget-constrained and latency-sensitive computing tasks. The deployment of machine learning algorithms on the edge architecture is appealing and has great practical value. For applications like real-time anomaly detection and offline identity verification, edge machine learning avoids the latency of data transmission, and often offers strong privacy protection as well as security guarantee.
+
+A straightforward idea to deploy machine learning on edge devices is using distributed machine learning algorithms. However, these existing methods typically fail to work due to the resource-constrained nature of edge IoT devices. There are thus emerging demands for novel models and algorithms. In this project, we propose a tree-based classification model for multiple resource-constrained IoT devices. It utilizes prior knowledge (e.g., hierarchy in Figure 1) to build a large classification tree with identical hierarchy to the prior knowledge at first, then prunes the tree node by node while minimizing accuracy loss. Pruning stops when the number of classifier in the classification tree is equal to the number of available IoT devices and we reach an optimal state where the final model can fit on the limited number of devices while having minimal accuracy loss.
+
+There are two main advantages of this classification model. The first one is that we have very low requirements on the computing power of each node. We can combine numerous resource-constrained devices to obtain a classification model with high accuracy that is otherwise not possible on such devices. The model can also scale up whenever new nodes are added and improve the overall accuracy. The second advantage is that in our tree-based classification model, each node only propagates the data to the lower branch with the highest probability. Therefore, the utilization of each node is very low and this allows for high levels of parallelization and increased throughput when working on large number of images. 
+
+For our experiments, we plan to use Neural Networks(NNs) to solve image classification tasks. Therefore, instead of running a huge network that classifies the entire dataset, we can run multiple small networks that distinguish specific elements. For example, if we are to classify between thousands of species of animals, we can first use prior knowledge about the hierarchy of the animals to create nodes that classify between different species and then create different nodes that classify between various breeds under a specific species. The entire framework will look like a tree with each node being a small NN running on an IoT device. The main challenge of the project is to create an optimal model that best splits the data while being able to fit the NNs on each node. For experiments, we will deploy the models onto Raspberry Pi’s for image classification on the CIFAR-100 dataset.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.7\textwidth]{fig1.jpg}
+%   \fbox{\rule[-.5cm]{0cm}{4cm}{fig1.jpg} \rule[-.5cm]{4cm}{0cm}}
+  \caption{Hierarchy of CIFAR-100 dataset}
+\end{figure}
+
+\section{Related Work}
+While machine learning becomes essential for lots of IoT applications, most of IoT devices make predictions via sending their measurement data to centralized clouds [1, 2]. Compared to centralized prediction, having edge devices make predictions locally avoids the latency of data transmission, and offers strong privacy protection [4]. One way to deploy machine learning onto multiple edge devices is distributed machine learning [5 - 8]. However, existing distributed machine learning, which aims to enable large-scale ML task, does not consider memory and computing constraints on the edge devices, thus cannot be used directly by edge devices. 
+
+There are many adaptive systems considering resource-constrained prediction, which ensure overall accuracy under budget constraints [9, 10]. Nan \& Saligrama [11] propose an adaptive approximation approach for test-time resource-constrained prediction motivated by IoT. In [12], a random forest is pruned to optimize expected feature cost and accuracy for resource-constrained prediction. 
+
+Another set of related work designs resource-efficient small models which can run on IoT devices.  Kumar et al. [4] develop a novel tree-based algorithm for efficient prediction on IoT devices. Gupta et al. [13] proposes ProtoNN, a novel kNN based algorithm for tiny resource-constrained devices to solve supervised learning problems. The Sparse Multiprototype Linear Learner (SMaLL) algorithm in [14] is used for training small resource-constrained predictors.
+
+\section{Method}
+The basic idea of our method is to group classes into some superclasses. Thus instead of building a classification model over the whole dataset, each individual edge node works on a single group that contains only a subset of the total data. The expectation is to reduce the complexity of models on each node, and increase the prediction accuracy.
+
+
+\begin{algorithm}[H]\label{ag:taxonomy}
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+    \SetKwRepeat{Do}{do}{while}
+
+    \underline{function Build-Tree-Taxonomy $(K, data, G)$}\;
+    \Input{Number of edge nodes $K$; $n$ observations $data$; Pre-built taxonomy tree $G$}
+    \Output{A tree structure $T$ with at most $K$ nodes.}
+    $T$ = $G$ \\
+    \While{$|G| > k$}
+      {
+        For each new pair $(l_1,l_2)$ with the same parent, try merge them. \\
+        Compute the change of the average score. Store the result into some global table.\\
+        Find in the table the pair $(l_1^*,l_2^*)$ with the highest merging score.\\
+        Merge $(l_1^*,l_2^*)$, insert the new node $l_{new}$ under $p = l_1^*.parent$.\\
+        \If{$l_1^*.parent$ has only one child}
+        {
+            Replace $p$ with $l_{new}$
+        }
+      }
+    return $T$
+    \caption{Taxonomy Pruning Algorithm}
+\end{algorithm}
+
+The topology of the groups should be organized as a tree (call it a t-Tree). Each edge node is associated with a t-Tree node, which trains a machine learning model to classify its children. On prediction, a query starts from the root, and goes all the way to the leaves. The prediction result is the class reported by the last t-Tree node on the path.
+
+\begin{algorithm}[H]\label{ag:prediction}
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+
+    \underline{function Predict $(T, X)$}\;
+    \Input{A t-Tree node $T$; A sample $X$}
+    \Output{A class label $y$}
+    \eIf{$T$ is leave}
+      {
+        return $T$.classifier.predict($X$)
+      }
+      {
+        $T'$ = $T$.children($T$.classifier.predict($X$))\\
+        return Predict($T',X$)
+      }
+    
+    \caption{Prediction Algorithm}
+\end{algorithm}
+
+The complexity of the algorithm is bounded by the height of the t-Tree, which is roughly $O(\log(L))$, where $L$ is the total number of classes. While the prediction accuracy of each node is increased, however, the error is propagating in a tree structure. For the purpose of reducing error and pipelining queries, we want the upper level nodes to have higher accuracy and shorter runtime.
+
+We define the average accuracy of a subtree as the accuracy of the root, multiplied by the number-of-samples-weighted average accuracy of its children. Ideally, we want a t-Tree to maximize the average accuracy. The problem is however very hard considering the possibilities of tree topology. Our idea is thus to limit the topology a t-Tree can take, thus pruning the searching space.
+
+\subsection{A baseline algorithm}
+A naive idea is to constrain the topology as a 2-layer tree. Algorithm \ref{ag:baseline} yields a 2-layer t-Tree with precisely $k$ nodes. Each iteration entails comparing all pairs of the leaves, which takes $O(L^2)$ time. We need to train two classification models for each pair, one for the merged node, one for the parent. Other nodes' accuracy are unchanged. There are $L/2-k$ iterations, thus the complexity is $O(L^3)$ times the runtime for training. We generally do not set limit for the types and complexities of individual classification models. It is possible to use totally different models for different nodes. However, for efficiency consideration, it is wise to constraint the choice to a small set of models.
+
+\begin{algorithm}[H]\label{ag:baseline}
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+    \SetKwRepeat{Do}{do}{while}
+
+    \underline{function Build-Tree-Baseline $(k, data, class)$}\;
+    \Input{Number of edge nodes $k$; $n$ observations $data$; Class labels $class$}
+    \Output{A t-Tree $T$}
+    Initialize: Create $n/2$ leaves that maximizes average accuracy. Each leave contains a binary classifier.
+    
+    \While{len(set\_leaves) $> k - 1$}
+      {
+        Find optimal pair $p = (l1,l2)$ that maximizes average accuracy\\
+        Remove $l1,l2$ from $set\_leaves$\\
+        Add $p$ to $set\_leaves$
+      }
+    
+    Create a root $T$ points to all leaves\\
+    return $T$\;
+    \caption{Baseline Algorithm}
+\end{algorithm}
+
+\subsection{Taxonomy based algorithm}
+The baseline algorithm is straightforward yet very inefficient. In this section, we will propose a new algorithm that utilizes taxonomy as prior knowledge. 
+
+In fact, for most classification problems, the classes are highly hierarchical. For example, biology taxonomy classifies species with a 9-layer tree. So instead of building everything from scratch, we can create a t-Tree by modifying the ``taxonomy tree". We argue that this method is reasonable because: 1) Taxonomy tends to group classes with similar properties, which is usually what machine learning algorithms do; 2) There are many existing algorithms specifically designed for some groups in the taxonomy, which can be reused.
+
+\begin{algorithm}[H]\label{ag:taxonomy}
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+    \SetKwRepeat{Do}{do}{while}
+
+    \underline{function Build-Tree-Taxonomy $(k, data, G)$}\;
+    \Input{Number of edge nodes $k$; $n$ observations $data$; Pre-built taxonomy tree $G$}
+    \Output{A t-Tree}
+    
+    \While{$|G| > k$}
+      {
+        Find optimal pair $(l1,l2)$ that maximizes average accuracy. Where $l1,l2$ are leaves, $l2$ is a sibling of $l1$\\
+        Merge $l1$ and $l2$. Drop it if it becomes an only child
+      }
+    return $G$
+    \caption{Taxonomy based Algorithm}
+\end{algorithm}
+
+Using Algorithm \ref{ag:taxonomy}, a node can only merge with its leave-siblings. The number of combinations is therefore greatly decreased.
+
+\section{Dataset \& Preliminary Results}
+\subsection{Dataset}
+CIFAR-100:\\
+It contains 100 classes with 600 32x32 colour images each. The 100 classes are then grouped into 20 superclasses. 
+We chose this dataset because there exists a hierarchy of all the classes and can serve as prior knowledge to our model. 
+We do not need to pre-process the images but we might need to identify a hierarchical structure different from the existing “superclass-subclass” structure. The inputs are the images as numpy arrays and the outputs are the classification results of both the class and superclass(es). 
+
+\subsection{Preliminary Results}
+We run our taxonomy based algorithm on part of the CIFAR-100 dataset (as shown in figure 1). We assume that there are 12 available IoT devices. The new taxonomy-based tree is shown in figure 2. Each node in the tree represents a classifier. Table 1 shows the classification accuracy of each node. We can see for some nodes (e.g., mammals), the accuracy is too low. One reason might be that we only use a very small Neural Network (around 10 neurons) on each node. We will try to use larger Neural Network to achieve higher accuracy, while considering the resource constraints on each node.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=0.7\textwidth]{fig2.jpg}
+%   \fbox{\rule[-.5cm]{0cm}{4cm}{fig1.jpg} \rule[-.5cm]{4cm}{0cm}}
+  \caption{Output taxonomy-based tree}
+\end{figure}
+
+\begin{table}[t]
+  \caption{Accuracy of each node}
+  \label{sample-table}
+  \centering
+  \begin{tabular}{lll}
+    \toprule
+    % \multicolumn{2}{c}{Part}                   \\
+    \cmidrule{1-2}
+    Name     & \# of samples & Accuracy \\
+    \midrule
+    animal & 17500 & 71\% \\
+    vertebrates & 12500 & 60\% \\
+    reptiles+fish & 5000 & 10\% \\
+    mammals & 7500 & 6\% \\
+    invertebrates & 5000 & 50\% \\
+    insects & 2500 & 20\% \\
+    otherinverts. & 2500 & 20\% \\
+    people & 2000 & 50\% \\ 
+    plant & 7500 & 6\% \\ 
+    root node & 27000 & 65\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Timeline and Division of Work }
+We have mainly met our goal set in the project proposal.\\
+4/16-4/22:\\
+Run NNs on Raspberry Pis. Profile the Raspberry Pis for maximum size of networks and communication overhead (hfang). Find better clustering methods/pruning decisions.(hfang,jzuo,yichenr)\\
+4/23-4/29:\\
+Implement maximum NNs on Raspberry Pis. Tune the hyperparameters of the current structure for higher accuracy. (jzuo,yichenr) Fix upon a final design and gather data for poster/demo. (hfang)
+
+
+
+\newpage
+\section*{References}
+
+\medskip
+
+\small
+
+[1] https://cloud.google.com/solutions/automating-iot-machine-learning.
+
+[2] https://docs.microsoft.com/en-us/azure/iot-edge/tutorial-deploy-machine-learning.
+
+[3] https://microsoft.github.io/ELL/.
+
+[4] Kumar, A., Goyal, S. \& Varma, M. (2017). Resource-efficient Machine Learning in 2 KB RAM for the Internet of Things. In {\it International Conference on Machine Learning}, pp. 1935-1944.
+
+[5] Li, M., Andersen, D. G., Smola, A. J., \& Yu, K. (2014). Communication efficient distributed machine learning with the parameter server. In {\it Advances in Neural Information Processing Systems}, pp. 19-27.
+
+[6] Hsieh, K., Harlap, A., Vijaykumar, N., Konomis, D., Ganger, G. R., Gibbons, P. B., \& Mutlu, O. (2017). Gaia: Geo-Distributed Machine Learning Approaching LAN Speeds. In {\it NSDI}, pp. 629-647.
+
+[7] Cui, H., Zhang, H., Ganger, G. R., Gibbons, P. B., \& Xing, E. P. (2016). GeePS: Scalable deep learning on distributed GPUs with a GPU-specialized parameter server. In {\it Proceedings of the Eleventh European Conference on Computer Systems}.
+
+[8] Xing, E. P., Ho, Q., Dai, W., Kim, J.K., Wei, J., Lee, S., Zheng, X., Xie, P., Kumar, A. \& Yu, Y. (2015). Petuum: A new platform for distributed machine learning on big data. {\it IEEE Transactions on Big Data}, 1(2), pp. 49-67.
+
+[9] Trapeznikov, K., \& Saligrama, V. (2013). Supervised sequential classification under budget constraints. In {\it Artificial Intelligence and Statistics}, pp. 581-589.
+
+[10] Xu, Z., Weinberger, K., \& Chapelle, O. (2012). The greedy miser: Learning under test-time budgets. In {\it Proceedings of the 29th International Conference on Machine Learning}.
+
+[11] Nan, F. \& Saligrama, V. (2017). Adaptive Classification for Prediction Under a Budget. In {\it Advances in Neural Information Processing Systems}, pp. 4730-4740.
+
+[12] Nan, F., Wang, J., \& Saligrama, V. (2016). Pruning random forests for prediction on a budget. In {\it Advances in neural information processing systems}, pp. 2334-2342.
+
+[13] Gupta, C., Suggala, A.S., Goyal, A., Simhadri, H.V., Paranjape, B., Kumar, A., Goyal, S., Udupa, R., Varma, M. \& Jain, P. (2017). ProtoNN: Compressed and Accurate kNN for Resource-scarce Devices. In {\it International Conference on Machine Learning}, pp. 1331-1340.
+
+[14] Garg, V. K., Dekel, O., \& Xiao, L. (2018). Learning SMaLL Predictors. arXiv preprint arXiv:1803.02388.
+
+
+\end{document}
